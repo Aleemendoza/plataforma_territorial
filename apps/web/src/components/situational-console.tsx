@@ -15,7 +15,18 @@ import type { NaturalEventEntity, OperationalDataset, SheetPanel } from "@/types
 
 function matchesFilters(event: NaturalEventEntity, activeFilters: string[]) {
   if (activeFilters.length === 0) return true;
-  return activeFilters.some((filter) => event.type.includes(filter) || event.kind.includes(filter));
+  return activeFilters.some((filter) => {
+    if (filter === "flood_risk") {
+      return event.kind === "hydric_risk" || event.kind === "river_surge" || event.type.includes("river");
+    }
+    if (filter === "wildfire") {
+      return event.kind === "wildfire" || event.type.includes("wildfire");
+    }
+    if (filter === "deforestation") {
+      return event.type.includes("deforestation");
+    }
+    return event.type.includes(filter) || event.kind.includes(filter);
+  });
 }
 
 export function SituationalConsole({
@@ -27,7 +38,7 @@ export function SituationalConsole({
 
   const [selectedEventId, setSelectedEventId] = useState<string | null>(narrativeEvents[0]?.id ?? null);
   const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
-  const [activeFilters, setActiveFilters] = useState<string[]>(["flood_risk"]);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [activeFieldIds, setActiveFieldIds] = useState<string[]>(
     layers.filter((layer) => layer.visible_by_default).map((layer) => layer.id)
   );

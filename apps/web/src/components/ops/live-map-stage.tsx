@@ -99,6 +99,11 @@ interface RiverPath {
   severity: number;
 }
 
+interface FieldPolygon {
+  polygon: [number, number][];
+  severity: number;
+}
+
 interface ReferencePath {
   path: [number, number][];
 }
@@ -162,6 +167,26 @@ function riversFromScene(scene: NarrativeScene): RiverPath[] {
     }));
 }
 
+function polygonsFromScene(scene: NarrativeScene, kinds: EnvironmentalField["kind"][]): FieldPolygon[] {
+  return scene.fields.reduce<FieldPolygon[]>((items, field) => {
+    if (!kinds.includes(field.kind) || field.geometry.type !== "Polygon") {
+      return items;
+    }
+
+    const polygon = field.geometry.coordinates[0] ?? [];
+    if (polygon.length === 0) {
+      return items;
+    }
+
+    items.push({
+      polygon,
+      severity: severityValue(field.severity)
+    });
+
+    return items;
+  }, []);
+}
+
 function markerEmoji(kind: string) {
   if (kind === "wildfire") return "🔥";
   if (kind === "hydric_risk" || kind === "river_surge") return "🌊";
@@ -222,6 +247,31 @@ function createProtomapsStyle(): StyleSpecification | null {
   return style;
 }
 
+function createFallbackRasterStyle(): StyleSpecification {
+  return {
+    version: 8,
+    sources: {
+      osm: {
+        type: "raster",
+        tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+        tileSize: 256,
+        attribution: "© OpenStreetMap contributors"
+      }
+    },
+    layers: [
+      {
+        id: "osm",
+        type: "raster",
+        source: "osm"
+      }
+    ]
+  };
+}
+
+function createMapStyle(): StyleSpecification {
+  return createProtomapsStyle() ?? createFallbackRasterStyle();
+}
+
 export function LiveMapStage({
   scene,
   selectedEventId,
@@ -246,6 +296,8 @@ export function LiveMapStage({
   const points = useMemo(() => eventPointsFromScene(scene), [scene]);
   const vectors = useMemo(() => vectorsFromScene(scene), [scene]);
   const riverPaths = useMemo(() => riversFromScene(scene), [scene]);
+  const wildfirePolygons = useMemo(() => polygonsFromScene(scene, ["fire_spread"]), [scene]);
+  const hydricPolygons = useMemo(() => polygonsFromScene(scene, ["hydric_risk", "rainfall_accumulation"]), [scene]);
   const selectedEvent = scene.events.find((event) => event.id === selectedEventId) ?? null;
   const highlightedEvent = scene.events.find((event) => event.id === highlightedEventId) ?? null;
   const activeEvent = selectedEvent ?? highlightedEvent ?? scene.events[0] ?? null;
@@ -292,14 +344,9 @@ export function LiveMapStage({
       protocolRegistered = true;
     }
 
-    const style = createProtomapsStyle();
-    if (!style) {
-      return;
-    }
-
     const map = new maplibregl.Map({
       container: mapContainerRef.current,
-      style,
+      style: createMapStyle(),
       center: INITIAL_CENTER,
       zoom: 8.1,
       attributionControl: false,
@@ -343,7 +390,7 @@ export function LiveMapStage({
           "line-width": 3
         }
       });
-      if (TERRAIN_PMTILES_URL) {
+      if (PMTILES_URL && TERRAIN_PMTILES_URL) {
         map.setTerrain({ source: "terrain", exaggeration: 1.12 });
       }
       overlayRef.current = new MapboxOverlay({ interleaved: true });
@@ -363,6 +410,10 @@ export function LiveMapStage({
     if (!overlayRef.current) return;
 
     const deckLayers: Layer[] = [];
+    const activeLayerSet = new Set(activeFieldIds);
+    const showHydric = activeLayerSet.has("flood-risk") || activeLayerSet.has("ndwi") || activeLayerSet.has("flood_risk");
+    const showWildfires = activeLayerSet.has("firms");
+    const showWind = activeLayerSet.has("wind-corridors") || activeLayerSet.has("wind");
 
     deckLayers.push(
       new PolygonLayer({
@@ -391,7 +442,52 @@ export function LiveMapStage({
       })
     );
 
-    if (activeFieldIds.includes("rainfall")) {
+    if (showHydric && hydricPolygons.length > 0) {
+      deckLayers.push(
+        new PolygonLayer<FieldPolygon>({
+          id: "hydric-polygons",
+          data: hydricPolygons,
+          getPolygon: (d) => d.polygon,
+          stroked: true,
+          filled: true,
+          getLineColor: [56, 189, 248, 220],
+          getFillColor: (d) => (d.severity >= 4 ? [39, 179, 255, 90] : [56, 189, 248, 60]),
+          lineWidthMinPixels: 2
+        })
+      );
+    }
+
+    if (showWildfires && wildfirePolygons.length > 0) {
+      deckLayers.push(
+        new PolygonLayer<FieldPolygon>({
+          id: "wildfire-polygons",
+          data: wildfirePolygons,
+          getPolygon: (d) => d.polygon,
+          stroked: true,
+          filled: true,
+          getLineColor: [240, 68, 82, 230],
+          getFillColor: (d) => (d.severity >= 3 ? [240, 68, 82, 88] : [249, 115, 22, 70]),
+          lineWidthMinPixels: 2
+        })
+      );
+      deckLayers.push(
+        new ScatterplotLayer<EventPoint>({
+          id: "wildfire-hotspots",
+          data: points.filter((d) => d.kind === "wildfire"),
+          getPosition: (d) => d.position,
+          getRadius: 7000,
+          radiusUnits: "meters",
+          stroked: true,
+          lineWidthMinPixels: 2,
+          getLineColor: [255, 255, 255, 220],
+          filled: true,
+          opacity: 0.9,
+          getFillColor: [240, 68, 82, 220]
+        })
+      );
+    }
+
+    if (showHydric) {
       deckLayers.push(
         new ScatterplotLayer<EventPoint>({
           id: "rain-cells",
@@ -407,7 +503,7 @@ export function LiveMapStage({
       );
     }
 
-    if (activeFieldIds.includes("wind") || activeFieldIds.includes("rainfall")) {
+    if (showWind || showHydric) {
       deckLayers.push(
         new LineLayer<VectorPoint>({
           id: "wind-streams",
@@ -426,7 +522,7 @@ export function LiveMapStage({
       );
     }
 
-    if (activeFieldIds.includes("river_state") || activeFieldIds.includes("flood_risk")) {
+    if (showHydric) {
       deckLayers.push(
         new PathLayer<RiverPath>({
           id: "river-paths",
@@ -441,7 +537,17 @@ export function LiveMapStage({
     }
 
     overlayRef.current.setProps({ layers: deckLayers });
-  }, [activeFieldIds, crisisMode, points, reliefPaths, riverPaths, riverReferencePaths, vectors]);
+  }, [
+    activeFieldIds,
+    crisisMode,
+    hydricPolygons,
+    points,
+    reliefPaths,
+    riverPaths,
+    riverReferencePaths,
+    vectors,
+    wildfirePolygons
+  ]);
 
   useEffect(() => {
     if (!mapRef.current || !activeEvent) return;

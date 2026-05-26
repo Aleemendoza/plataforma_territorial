@@ -50,6 +50,15 @@ const layers: LayerDefinition[] = [
     legend: [{ label: "activo", color: "#F04452" }]
   },
   {
+    id: "wind-corridors",
+    group: "Ambiente",
+    label: "Viento",
+    technical_name: "wind-corridors",
+    visible_by_default: true,
+    available_time_ranges: ["live", "24h"],
+    legend: [{ label: "direccion dominante", color: "#F59E0B" }]
+  },
+  {
     id: "routes",
     group: "Infraestructura",
     label: "Rutas sensibles",
@@ -332,7 +341,7 @@ const fields: EnvironmentalField[] = [
     kind: "wind_corridor",
     severity: "MEDIUM",
     label: "Viento dominante",
-    layer_id: "routes",
+    layer_id: "wind-corridors",
     geometry: {
       type: "LineString",
       coordinates: [
@@ -436,7 +445,7 @@ const scenes: NarrativeScene[] = [
     title: "Seguimiento de focos en Yungas sur",
     synopsis: "Cruza persistencia FIRMS con cobertura vegetal continua y accesos rurales.",
     timestamp: NOW,
-    available_layers: ["firms", "routes"],
+    available_layers: ["firms", "wind-corridors", "routes"],
     freshness: "live",
     comparison_supported: true,
     conditions_summary: [
@@ -488,7 +497,7 @@ const scenes: NarrativeScene[] = [
     title: "Tablero provincial de prioridades",
     synopsis: "Agrupa eventos activos para coordinacion operativa y lectura territorial comun.",
     timestamp: NOW,
-    available_layers: ["ndwi", "flood-risk", "firms", "routes"],
+    available_layers: ["ndwi", "flood-risk", "firms", "wind-corridors", "routes"],
     freshness: "live",
     comparison_supported: true,
     conditions_summary: [
