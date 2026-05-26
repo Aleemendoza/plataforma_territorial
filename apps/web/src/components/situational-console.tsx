@@ -77,7 +77,7 @@ export function SituationalConsole({
   }
 
   return (
-    <main className="min-h-screen bg-graphite px-3 pb-28 pt-3 text-white lg:px-4 lg:pb-4">
+    <main className="min-h-screen bg-graphite px-3 pb-32 pt-3 text-white lg:px-4 lg:pb-4">
       <TopStatusBar status={operationalStatus} topAlerts={visibleEvents} />
       <button
         type="button"
@@ -128,18 +128,20 @@ export function SituationalConsole({
 
       <div className="fixed inset-x-3 bottom-24 z-30 lg:hidden">
         {mobilePanel === "alerts" && (
-          <AlertStack
-            alerts={visibleEvents}
-            selectedAlertId={selectedEvent?.id}
-            onSelect={(alert) => {
-              setSelectedEventId(alert.id);
-              setMobilePanel("map");
-            }}
-            onHover={(alert) => setHighlightedEventId(alert?.id ?? null)}
-          />
+          <div className="max-h-[52vh] overflow-y-auto rounded-[28px]">
+            <AlertStack
+              alerts={visibleEvents}
+              selectedAlertId={selectedEvent?.id}
+              onSelect={(alert) => {
+                setSelectedEventId(alert.id);
+                setMobilePanel("map");
+              }}
+              onHover={(alert) => setHighlightedEventId(alert?.id ?? null)}
+            />
+          </div>
         )}
         {mobilePanel === "layers" && (
-          <div className="glass-panel max-h-[58vh] overflow-y-auto rounded-[28px] p-4">
+          <div className="glass-panel max-h-[52vh] overflow-y-auto rounded-[28px] p-4">
             <OperationalSidebar
               status={operationalStatus}
               layers={layers}
@@ -147,20 +149,25 @@ export function SituationalConsole({
               activeLayerIds={activeFieldIds}
               onToggleFilter={toggleFilter}
               onToggleLayer={toggleLayer}
+              compact
               className="border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
             />
           </div>
         )}
         {mobilePanel === "timeline" && (
-          <TimelineScrubber scenes={narrativeScenes} selectedIndex={timelineIndex} onChange={setTimelineIndex} />
+          <div className="glass-panel rounded-[28px] p-3">
+            <TimelineScrubber scenes={narrativeScenes} selectedIndex={timelineIndex} onChange={setTimelineIndex} />
+          </div>
         )}
         {mobilePanel === "map" && selectedEvent && (
-          <ContextDrawer event={selectedEvent} onClose={() => setSelectedEventId(null)} mobile />
+          <div className="max-h-[48vh] overflow-y-auto rounded-[28px]">
+            <ContextDrawer event={selectedEvent} onClose={() => setSelectedEventId(null)} mobile />
+          </div>
         )}
       </div>
 
       {visibleEvents[0] && (
-        <div className="fixed bottom-24 left-3 z-30 lg:bottom-6 lg:left-auto lg:right-6">
+        <div className="fixed bottom-24 left-3 z-30 hidden lg:block lg:bottom-6 lg:left-auto lg:right-6">
           <AlertToastPassive alert={visibleEvents[0]} />
         </div>
       )}

@@ -19,7 +19,7 @@ export function MobileActionDock({
   onChange: (panel: SheetPanel) => void;
 }) {
   return (
-    <nav className="glass-panel fixed bottom-3 left-3 right-3 z-40 rounded-[28px] p-2 lg:hidden">
+    <nav className="glass-panel fixed bottom-3 left-3 right-3 z-40 rounded-[26px] border border-white/10 bg-slate-950/88 p-1.5 backdrop-blur-xl lg:hidden">
       <div className="grid grid-cols-4 gap-1">
         {items.map(({ id, label, icon: Icon }) => (
           <button
@@ -27,7 +27,7 @@ export function MobileActionDock({
             type="button"
             onClick={() => onChange(id)}
             className={cn(
-              "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-xs transition",
+              "flex flex-col items-center gap-1 rounded-2xl px-2 py-2 text-[11px] transition",
               active === id ? "bg-cyan-300/12 text-cyan-100" : "text-slate-400"
             )}
           >
@@ -39,4 +39,3 @@ export function MobileActionDock({
     </nav>
   );
 }
-
