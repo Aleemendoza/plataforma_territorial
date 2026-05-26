@@ -17,8 +17,9 @@ import type {
   OperationalStatus,
   Severity
 } from "@/types/operational";
+import { demoAlerts, demoOperationalDataset, getDemoIncidentEvent } from "@/lib/demo-operational-data";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim();
 
 type RawRecord = Record<string, unknown>;
 
@@ -250,6 +251,10 @@ function transformScene(raw: RawRecord): NarrativeScene {
 }
 
 async function fetchJson<T>(path: string): Promise<T> {
+  if (!API_BASE_URL) {
+    throw new Error("API base URL is not configured.");
+  }
+
   const response = await fetch(`${API_BASE_URL}${path}`, {
     cache: "no-store"
   });
@@ -260,31 +265,35 @@ async function fetchJson<T>(path: string): Promise<T> {
 }
 
 export async function fetchOperationalDataset(): Promise<OperationalDataset> {
-  const [status, layers, rawScenes] = await Promise.all([
-    fetchJson<OperationalStatus>("/status"),
-    fetchJson<LayerDefinition[]>("/layers"),
-    fetchJson<RawRecord[]>("/narrative/scenes"),
-  ]);
+  try {
+    const [status, layers, rawScenes] = await Promise.all([
+      fetchJson<OperationalStatus>("/status"),
+      fetchJson<LayerDefinition[]>("/layers"),
+      fetchJson<RawRecord[]>("/narrative/scenes"),
+    ]);
 
-  const narrativeScenes = rawScenes.map((scene) => transformScene(scene));
-  const eventMap = new Map<string, NaturalEventEntity>();
+    const narrativeScenes = rawScenes.map((scene) => transformScene(scene));
+    const eventMap = new Map<string, NaturalEventEntity>();
 
-  for (const scene of narrativeScenes) {
-    for (const event of scene.events) {
-      eventMap.set(event.id, event);
+    for (const scene of narrativeScenes) {
+      for (const event of scene.events) {
+        eventMap.set(event.id, event);
+      }
     }
+
+    const narrativeEvents = Array.from(eventMap.values()).sort(
+      (left, right) => severityScore(right.severity) - severityScore(left.severity)
+    );
+
+    return {
+      status,
+      layers,
+      narrativeEvents,
+      narrativeScenes
+    };
+  } catch {
+    return demoOperationalDataset;
   }
-
-  const narrativeEvents = Array.from(eventMap.values()).sort(
-    (left, right) => severityScore(right.severity) - severityScore(left.severity)
-  );
-
-  return {
-    status,
-    layers,
-    narrativeEvents,
-    narrativeScenes
-  };
 }
 
 export async function fetchIncidentEvent(incidentId: string): Promise<NaturalEventEntity | null> {
@@ -292,11 +301,15 @@ export async function fetchIncidentEvent(incidentId: string): Promise<NaturalEve
     const raw = await fetchJson<RawRecord>(`/narrative/events/${incidentId}`);
     return transformEvent(raw);
   } catch {
-    return null;
+    return getDemoIncidentEvent(incidentId);
   }
 }
 
 export async function fetchAlertsFeed(): Promise<Alert[]> {
-  const alerts = await fetchJson<Alert[]>("/alerts");
-  return alerts;
+  try {
+    const alerts = await fetchJson<Alert[]>("/alerts");
+    return alerts;
+  } catch {
+    return demoAlerts;
+  }
 }
