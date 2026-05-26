@@ -694,8 +694,8 @@ export function LiveMapStage({
         cinematicMode && "ring-1 ring-cyan-300/20"
       )}
     >
+      <div ref={mapContainerRef} className="h-full w-full min-h-[640px]" />
       {!isReady && <LoadingShimmerMap />}
-      <div ref={mapContainerRef} className="absolute inset-0" />
       <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,8,13,0.02),rgba(6,8,13,0.08)_32%,rgba(6,8,13,0.18))]" />
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(39,179,255,0.05),transparent_28%),radial-gradient(circle_at_50%_55%,rgba(56,189,248,0.03),transparent_52%)]" />
 
