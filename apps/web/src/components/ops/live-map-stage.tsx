@@ -6,7 +6,7 @@ import type { Layer } from "@deck.gl/core";
 import maplibregl, { type LngLatLike, type Map as MapLibreMap, type StyleSpecification } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import { MapboxOverlay } from "@deck.gl/mapbox";
-import { LineLayer, PathLayer, PolygonLayer, ScatterplotLayer } from "@deck.gl/layers";
+import { LineLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { layers as buildBasemapLayers, namedFlavor } from "@protomaps/basemaps";
 import { Protocol } from "pmtiles";
 import { NarrativeEventPreview } from "@/components/ops/narrative-event-preview";
@@ -80,6 +80,20 @@ const JUJUY_RIVER_REFERENCE_PATHS: [number, number][][] = [
     [-64.96, -23.28]
   ]
 ];
+const REFERENCE_LABELS = [
+  { label: "Jujuy", position: [-65.3, -23.95] as [number, number], size: 22, color: [232, 242, 255, 220] as [number, number, number, number] },
+  { label: "Yala", position: [-65.48, -24.11] as [number, number], size: 14, color: [160, 230, 255, 210] as [number, number, number, number] },
+  { label: "Yungas", position: [-64.86, -24.26] as [number, number], size: 14, color: [255, 197, 143, 210] as [number, number, number, number] },
+  { label: "Volcan", position: [-65.38, -23.9] as [number, number], size: 14, color: [191, 219, 254, 210] as [number, number, number, number] }
+];
+const GRID_PATHS: [number, number][][] = [
+  [[-66.2, -24.5], [-64.6, -24.5]],
+  [[-66.2, -24.0], [-64.6, -24.0]],
+  [[-66.2, -23.5], [-64.6, -23.5]],
+  [[-65.9, -24.7], [-65.9, -22.8]],
+  [[-65.4, -24.7], [-65.4, -22.8]],
+  [[-64.9, -24.7], [-64.9, -22.8]]
+];
 
 interface EventPoint {
   id: string;
@@ -104,6 +118,13 @@ interface FieldPolygon {
   severity: number;
 }
 
+interface LabelPoint {
+  label: string;
+  position: [number, number];
+  size: number;
+  color: [number, number, number, number];
+}
+
 interface ReferencePath {
   path: [number, number][];
 }
@@ -112,6 +133,11 @@ interface ProjectedMarker {
   entity: NaturalEventEntity;
   x: number;
   y: number;
+}
+
+interface WindArrowPoint {
+  position: [number, number];
+  angle: number;
 }
 
 function severityValue(severity: string) {
@@ -215,6 +241,11 @@ function markerClasses(kind: string, severity: string) {
   return `${severityClass} ${typeClass}`;
 }
 
+function angleFromVector(source: [number, number], target: [number, number]) {
+  const radians = Math.atan2(target[1] - source[1], target[0] - source[0]);
+  return (radians * 180) / Math.PI;
+}
+
 function createProtomapsStyle(): StyleSpecification | null {
   if (!PMTILES_URL) {
     return null;
@@ -308,6 +339,16 @@ export function LiveMapStage({
   const riverReferencePaths = useMemo<ReferencePath[]>(
     () => JUJUY_RIVER_REFERENCE_PATHS.map((path) => ({ path })),
     []
+  );
+  const gridPaths = useMemo<ReferencePath[]>(() => GRID_PATHS.map((path) => ({ path })), []);
+  const labelPoints = useMemo<LabelPoint[]>(() => REFERENCE_LABELS, []);
+  const windArrowPoints = useMemo<WindArrowPoint[]>(
+    () =>
+      vectors.map((vector) => ({
+        position: vector.target,
+        angle: angleFromVector(vector.source, vector.target)
+      })),
+    [vectors]
   );
 
   useEffect(() => {
@@ -425,20 +466,53 @@ export function LiveMapStage({
         getFillColor: crisisMode ? [20, 28, 44, 120] : [15, 23, 42, 92]
       }),
       new PathLayer<ReferencePath>({
+        id: "jujuy-grid-reference",
+        data: gridPaths,
+        getPath: (d) => d.path,
+        getColor: [71, 85, 105, 58],
+        widthMinPixels: 1,
+        getWidth: 1
+      }),
+      new PathLayer<ReferencePath>({
         id: "jujuy-relief-reference",
         data: reliefPaths,
         getPath: (d) => d.path,
-        getColor: [148, 163, 184, 88],
+        getColor: [148, 163, 184, 118],
         widthMinPixels: 1,
-        getWidth: 2
+        getWidth: 3
       }),
       new PathLayer<ReferencePath>({
         id: "jujuy-river-reference",
         data: riverReferencePaths,
         getPath: (d) => d.path,
-        getColor: [56, 189, 248, 132],
+        getColor: [56, 189, 248, 170],
         widthMinPixels: 2,
-        getWidth: 3
+        getWidth: 4
+      }),
+      new ScatterplotLayer<LabelPoint>({
+        id: "reference-nodes",
+        data: labelPoints,
+        getPosition: (d) => d.position,
+        getRadius: 2500,
+        radiusUnits: "meters",
+        stroked: true,
+        lineWidthMinPixels: 1,
+        getLineColor: [255, 255, 255, 150],
+        filled: true,
+        getFillColor: [15, 23, 42, 210]
+      }),
+      new TextLayer<LabelPoint>({
+        id: "reference-labels",
+        data: labelPoints,
+        getPosition: (d) => d.position,
+        getText: (d) => d.label,
+        getColor: (d) => d.color,
+        getSize: (d) => d.size,
+        getPixelOffset: [0, -18],
+        getTextAnchor: "middle",
+        getAlignmentBaseline: "bottom",
+        fontFamily: "ui-sans-serif, system-ui, sans-serif",
+        characterSet: "auto"
       })
     );
 
@@ -518,6 +592,19 @@ export function LiveMapStage({
                 : [148, 163, 184, 145],
           getWidth: (d) => (d.intensity > 0.8 ? 4 : d.intensity > 0.55 ? 3 : 2),
           widthUnits: "pixels"
+        }),
+        new TextLayer<WindArrowPoint>({
+          id: "wind-arrows",
+          data: windArrowPoints,
+          getPosition: (d) => d.position,
+          getText: () => "➜",
+          getColor: [251, 191, 36, 220],
+          getSize: 20,
+          getAngle: (d) => d.angle,
+          getTextAnchor: "middle",
+          getAlignmentBaseline: "center",
+          fontFamily: "ui-sans-serif, system-ui, sans-serif",
+          characterSet: "auto"
         })
       );
     }
@@ -540,13 +627,16 @@ export function LiveMapStage({
   }, [
     activeFieldIds,
     crisisMode,
+    gridPaths,
     hydricPolygons,
+    labelPoints,
     points,
     reliefPaths,
     riverPaths,
     riverReferencePaths,
     vectors,
-    wildfirePolygons
+    wildfirePolygons,
+    windArrowPoints
   ]);
 
   useEffect(() => {
@@ -616,22 +706,22 @@ export function LiveMapStage({
         })}
       </div>
 
-      <div className="absolute left-4 top-4 z-10 max-w-xl rounded-3xl border border-white/10 bg-slate-950/55 p-4 backdrop-blur">
+      <div className="absolute left-4 top-4 z-10 max-w-md rounded-3xl border border-white/10 bg-slate-950/45 p-3 backdrop-blur">
         <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">
           {cinematicMode ? "Modo cinematico" : "Vista situacional"}
         </p>
-        <h1 className="mt-1 font-display text-2xl font-semibold text-white lg:text-3xl">
-          La provincia respira en tiempo real
+        <h1 className="mt-1 font-display text-xl font-semibold text-white lg:text-2xl">
+          Provincia de Jujuy en monitoreo activo
         </h1>
-        <p className="mt-2 text-sm text-slate-300">
+        <p className="mt-2 text-xs text-slate-300 lg:text-sm">
           {activeEvent?.narrative_summary ??
             "El mapa traduce fuego, lluvia, viento y agua en senales visuales intuitivas sin forzar lectura GIS."}
         </p>
       </div>
 
-      <div className="absolute right-4 top-4 z-10 max-w-sm rounded-3xl border border-white/10 bg-slate-950/55 p-4 backdrop-blur">
+      <div className="absolute bottom-4 right-4 z-10 max-w-xs rounded-3xl border border-white/10 bg-slate-950/48 p-3 backdrop-blur">
         <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Condiciones naturales</p>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-xs text-slate-300">
+        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-300">
           {scene.conditions_summary.map((item) => (
             <div key={item.label} className="rounded-2xl border border-white/8 bg-white/5 px-3 py-2">
               <p className="uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
@@ -641,8 +731,8 @@ export function LiveMapStage({
         </div>
       </div>
 
-      <div className="absolute bottom-4 left-4 right-4 z-10 flex flex-wrap items-end justify-between gap-3">
-        <div className="rounded-3xl border border-white/10 bg-slate-950/55 px-4 py-3 text-sm backdrop-blur">
+      <div className="absolute bottom-4 left-4 z-10 flex max-w-md flex-wrap items-end gap-3">
+        <div className="rounded-3xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm backdrop-blur">
           <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Escena actual</p>
           <p className="font-medium text-white" suppressHydrationWarning>{sceneLabel}</p>
         </div>
