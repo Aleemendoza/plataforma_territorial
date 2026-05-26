@@ -1,44 +1,130 @@
 # Jujuy Alerta Territorial
 
-Demo operativa de monitoreo territorial construida para iterar rapido, mostrar valor y desplegar sin complejidad innecesaria.
+Visor operativo para Jujuy con mapa navegable, focos de incendio reales de NASA FIRMS, meteorologia de Open-Meteo y capa satelital opcional sobre MapLibre.
 
-## Stack actual
+## Arquitectura activa
 
-- `apps/web`: Next.js 15, React 19, Tailwind y MapLibre.
-- Docker para correr local y desplegar igual en Railway.
-- Supabase como destino natural para DB, auth y storage.
-- Dataset demo embebido para no depender de backend en la primera presentacion.
+- `apps/web`: Next.js 15, React 19, Tailwind, MapLibre y deck.gl.
+- `services/api-gateway`: FastAPI que unifica FIRMS, Open-Meteo y contexto narrativo para el frontend.
+- `packages/common-py`: schemas compartidos del backend.
+- `docker-compose.yml`: levanta `web` y `api` juntos para desarrollo local.
 
-## Estructura
+## Datos reales conectados
 
-- `apps/web`: frontend listo para demo publica.
-- `services/*`: backend futuro para ingestion, scoring, alertas y procesamiento.
-- `docker-compose.yml`: stack minima para levantar solo el frontend.
-- `.env.example`: variables necesarias para local y Railway.
+- `NASA FIRMS`
+  - focos termicos reales para Jujuy via `FIRMS_MAP_KEY`
+  - fuentes VIIRS NRT
+- `Open-Meteo`
+  - viento actual y series horarias
+  - precipitacion, humedad y flood context
+- `Sentinel Hub / WMS compatible`
+  - capa satelital opcional via URL de tiles/WMS
+  - activable desde el frontend como capa `Satelite visible`
 
-## Correr local
+Referencias oficiales:
+- [FIRMS API](https://firms.modaps.eosdis.nasa.gov/content/academy/data_api/firms_api_use.html)
+- [Open-Meteo Forecast API](https://open-meteo.com/en/docs)
+- [Sentinel Hub WMS](https://docs.sentinel-hub.com/api/latest/api/ogc/wms/)
 
-1. Copiar `.env.example` a `.env`.
-2. Ejecutar:
-   `docker compose up --build`
-3. Abrir `http://localhost:3000`.
+## Variables
 
-Si `NEXT_PUBLIC_API_URL` esta vacia, el frontend usa datos demo locales. Eso permite mostrar la plataforma aunque todavia no exista backend desplegado.
+Copiar `.env.example` a `.env`.
 
-## Railway
+### Frontend (`web`)
 
-1. Conectar el repo de GitHub en Railway.
-2. Railway detecta el `Dockerfile` en la raiz del repo y construye `apps/web` sin configuracion extra de monorepo.
-3. Si el servicio ya existia fallando con Railpack, hacer un redeploy despues de este cambio.
-4. Cargar variables:
-   - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `NEXT_PUBLIC_API_URL` solo cuando exista backend real
-   - `NEXT_PUBLIC_PROTOMAPS_PM_TILES_URL` si quieren mantener el basemap actual
-5. Generar dominio publico desde `Settings > Networking`.
+- `NEXT_PUBLIC_API_URL`
+  - URL publica del backend, por ejemplo `https://plataformaterritorial-api.up.railway.app/api/v1`
+- `NEXT_PUBLIC_WS_URL`
+  - websocket del backend, por ejemplo `wss://plataformaterritorial-api.up.railway.app/api/v1/ws/alerts`
+- `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK`
+  - dejar en `false` para produccion real
+- `NEXT_PUBLIC_PROTOMAPS_PM_TILES_URL`
+  - basemap PMTiles opcional
+- `NEXT_PUBLIC_SATELLITE_TILE_URL`
+  - URL raster lista para MapLibre. Puede ser un template XYZ o una plantilla WMS con `BBOX={bbox-epsg-3857}`, `WIDTH=256` y `HEIGHT=256`.
+- `NEXT_PUBLIC_SATELLITE_ATTRIBUTION`
+  - attribution HTML del proveedor satelital
 
-## Objetivo de esta etapa
+### Backend (`api-gateway`)
 
-- Tener demo online.
-- Mostrar flujo y narrativa territorial.
-- Cargar datos reales despues, sin frenar despliegue ni validacion.
+- `API_CORS_ORIGINS`
+  - dominios permitidos del frontend separados por coma
+- `FIRMS_MAP_KEY`
+  - clave de NASA FIRMS
+- `OPEN_METEO_BASE_URL`
+  - default `https://api.open-meteo.com`
+- `OPEN_METEO_FLOOD_BASE_URL`
+  - default `https://flood-api.open-meteo.com`
+- `SATELLITE_WMS_BASE_URL`
+  - base WMS/OGC si queres exponer tambien capas satelitales por API
+- `SATELLITE_TRUE_COLOR_LAYER`
+  - default `TRUE_COLOR`
+- `SATELLITE_NDVI_LAYER`
+  - default `NDVI`
+
+## Desarrollo local
+
+```bash
+docker compose up --build
+```
+
+Servicios:
+- `http://localhost:3000` -> frontend
+- `http://localhost:8000/health` -> backend
+
+## Despliegue en Railway
+
+Hay que crear **dos servicios** en el mismo proyecto Railway.
+
+### 1. Servicio `web`
+
+- Source repo: este repo
+- Builder: `Dockerfile`
+- Dockerfile: raiz del repo (`/Dockerfile`)
+- Dominio publico: el de la app web
+
+Variables del servicio `web`:
+
+- `NEXT_PUBLIC_API_URL=https://TU-SERVICIO-API.up.railway.app/api/v1`
+- `NEXT_PUBLIC_WS_URL=wss://TU-SERVICIO-API.up.railway.app/api/v1/ws/alerts`
+- `NEXT_PUBLIC_ENABLE_DEMO_FALLBACK=false`
+- `NEXT_PUBLIC_PROTOMAPS_PM_TILES_URL=...` opcional
+- `NEXT_PUBLIC_SATELLITE_TILE_URL=...` opcional
+- `NEXT_PUBLIC_SATELLITE_ATTRIBUTION=...` opcional
+
+### 2. Servicio `api-gateway`
+
+- Source repo: este repo
+- Root directory: repo root
+- Builder: `Dockerfile`
+- Dockerfile path: `services/api-gateway/Dockerfile`
+- Dominio publico: el de la API
+
+Variables del servicio `api-gateway`:
+
+- `API_CORS_ORIGINS=https://TU-SERVICIO-WEB.up.railway.app`
+- `FIRMS_MAP_KEY=...`
+- `OPEN_METEO_BASE_URL=https://api.open-meteo.com`
+- `OPEN_METEO_FLOOD_BASE_URL=https://flood-api.open-meteo.com`
+- `SATELLITE_WMS_BASE_URL=...` opcional
+- `SATELLITE_TRUE_COLOR_LAYER=TRUE_COLOR`
+- `SATELLITE_NDVI_LAYER=NDVI`
+
+## Donde guardar las API keys
+
+No van en el repo.
+
+- En Railway:
+  - `Proyecto > servicio > Variables`
+- `FIRMS_MAP_KEY` va en el servicio `api-gateway`
+- si usas Sentinel Hub con credenciales o URL privada, tambien va en `api-gateway`
+- las variables `NEXT_PUBLIC_*` van solo en `web`
+
+## Estado funcional
+
+- mapa navegable de Jujuy
+- iconos clickeables para alertas
+- incendios reales via FIRMS
+- viento y lluvia reales via Open-Meteo
+- detalle contextual al click
+- capa satelital opcional por env

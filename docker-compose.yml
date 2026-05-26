@@ -1,7 +1,18 @@
 services:
+  api:
+    build:
+      context: .
+      dockerfile: services/api-gateway/Dockerfile
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+
   web:
     build:
       context: ./apps/web
+    depends_on:
+      - api
     env_file:
       - .env
     ports:

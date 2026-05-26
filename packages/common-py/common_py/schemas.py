@@ -21,6 +21,7 @@ class AlertType(StrEnum):
 
 
 class RasterLayerType(StrEnum):
+    TRUE_COLOR = "true_color"
     NDVI = "ndvi"
     NDWI = "ndwi"
     NBR = "nbr"

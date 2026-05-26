@@ -16,6 +16,10 @@ import type { EnvironmentalField, NarrativeScene, NaturalEventEntity } from "@/t
 const INITIAL_CENTER: LngLatLike = [-65.3, -24.2];
 const PMTILES_URL = process.env.NEXT_PUBLIC_PROTOMAPS_PM_TILES_URL;
 const TERRAIN_PMTILES_URL = process.env.NEXT_PUBLIC_PROTOMAPS_TERRAIN_PM_TILES_URL;
+const SATELLITE_TILE_URL = process.env.NEXT_PUBLIC_SATELLITE_TILE_URL;
+const SATELLITE_ATTRIBUTION =
+  process.env.NEXT_PUBLIC_SATELLITE_ATTRIBUTION ??
+  '<a href="https://www.sentinel-hub.com/">Sentinel Hub</a> / Copernicus';
 let protocolRegistered = false;
 const JUJUY_OUTLINE: Feature<Polygon> = {
   type: "Feature",
@@ -399,6 +403,27 @@ export function LiveMapStage({
 
     map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
     map.on("load", () => {
+      if (SATELLITE_TILE_URL) {
+        map.addSource("satellite-true-color", {
+          type: "raster",
+          tiles: [SATELLITE_TILE_URL],
+          tileSize: 256,
+          attribution: SATELLITE_ATTRIBUTION
+        });
+        map.addLayer({
+          id: "satellite-true-color",
+          type: "raster",
+          source: "satellite-true-color",
+          layout: {
+            visibility: "none"
+          },
+          paint: {
+            "raster-opacity": 0.78,
+            "raster-saturation": 0.08,
+            "raster-contrast": 0.06
+          }
+        });
+      }
       map.addSource("jujuy-outline", {
         type: "geojson",
         data: JUJUY_OUTLINE
@@ -482,12 +507,29 @@ export function LiveMapStage({
   }, [isReady]);
 
   useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !map.getLayer("satellite-true-color")) return;
+
+    const satelliteVisible = activeFieldIds.includes("satellite_true_color");
+    map.setLayoutProperty(
+      "satellite-true-color",
+      "visibility",
+      satelliteVisible ? "visible" : "none"
+    );
+  }, [activeFieldIds]);
+
+  useEffect(() => {
     if (!overlayRef.current) return;
 
     const deckLayers: Layer[] = [];
     const activeLayerSet = new Set(activeFieldIds);
-    const showHydric = activeLayerSet.has("flood-risk") || activeLayerSet.has("ndwi") || activeLayerSet.has("flood_risk");
-    const showWildfires = activeLayerSet.has("firms");
+    const showHydric =
+      activeLayerSet.has("flood-risk") ||
+      activeLayerSet.has("ndwi") ||
+      activeLayerSet.has("flood_risk") ||
+      activeLayerSet.has("rainfall") ||
+      activeLayerSet.has("river_state");
+    const showWildfires = activeLayerSet.has("firms") || activeLayerSet.has("fire_spread");
     const showWind = activeLayerSet.has("wind-corridors") || activeLayerSet.has("wind");
 
     deckLayers.push(

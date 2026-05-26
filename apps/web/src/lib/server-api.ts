@@ -20,6 +20,27 @@ import type {
 import { demoAlerts, demoOperationalDataset, getDemoIncidentEvent } from "@/lib/demo-operational-data";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL?.trim();
+const ENABLE_DEMO_FALLBACK = process.env.NEXT_PUBLIC_ENABLE_DEMO_FALLBACK === "true";
+const SATELLITE_TILE_URL = process.env.NEXT_PUBLIC_SATELLITE_TILE_URL?.trim();
+
+function normalizeLayerDefinition(raw: LayerDefinition): LayerDefinition {
+  if (raw.id === "fire_spread") {
+    return { ...raw, label: "Focos termicos", technical_name: "firms" };
+  }
+  if (raw.id === "wind") {
+    return { ...raw, label: "Viento", technical_name: "wind-corridors" };
+  }
+  if (raw.id === "rainfall") {
+    return { ...raw, label: "Lluvia acumulada", technical_name: "rainfall-accumulation" };
+  }
+  if (raw.id === "river_state") {
+    return { ...raw, label: "Rios reactivos", technical_name: "river-state" };
+  }
+  if (raw.id === "flood_risk") {
+    return { ...raw, label: "Riesgo hidrico", technical_name: "hydric-risk" };
+  }
+  return raw;
+}
 
 type RawRecord = Record<string, unknown>;
 
@@ -266,12 +287,24 @@ async function fetchJson<T>(path: string): Promise<T> {
 
 export async function fetchOperationalDataset(): Promise<OperationalDataset> {
   try {
-    const [status, layers, rawScenes] = await Promise.all([
+    const [status, rawLayers, rawScenes] = await Promise.all([
       fetchJson<OperationalStatus>("/status"),
       fetchJson<LayerDefinition[]>("/layers"),
       fetchJson<RawRecord[]>("/narrative/scenes"),
     ]);
 
+    const layers = rawLayers.map(normalizeLayerDefinition);
+    if (SATELLITE_TILE_URL) {
+      layers.unshift({
+        id: "satellite_true_color",
+        group: "Ambiente",
+        label: "Satelite visible",
+        technical_name: "satellite-true-color",
+        visible_by_default: false,
+        available_time_ranges: ["live", "24h"],
+        legend: [{ label: "true color", color: "#D6E4F0" }]
+      });
+    }
     const narrativeScenes = rawScenes.map((scene) => transformScene(scene));
     const eventMap = new Map<string, NaturalEventEntity>();
 
@@ -292,7 +325,10 @@ export async function fetchOperationalDataset(): Promise<OperationalDataset> {
       narrativeScenes
     };
   } catch {
-    return demoOperationalDataset;
+    if (!API_BASE_URL || ENABLE_DEMO_FALLBACK) {
+      return demoOperationalDataset;
+    }
+    throw new Error("Operational API is configured but unavailable.");
   }
 }
 
@@ -301,7 +337,10 @@ export async function fetchIncidentEvent(incidentId: string): Promise<NaturalEve
     const raw = await fetchJson<RawRecord>(`/narrative/events/${incidentId}`);
     return transformEvent(raw);
   } catch {
-    return getDemoIncidentEvent(incidentId);
+    if (!API_BASE_URL || ENABLE_DEMO_FALLBACK) {
+      return getDemoIncidentEvent(incidentId);
+    }
+    return null;
   }
 }
 
@@ -310,6 +349,9 @@ export async function fetchAlertsFeed(): Promise<Alert[]> {
     const alerts = await fetchJson<Alert[]>("/alerts");
     return alerts;
   } catch {
-    return demoAlerts;
+    if (!API_BASE_URL || ENABLE_DEMO_FALLBACK) {
+      return demoAlerts;
+    }
+    throw new Error("Alerts API is configured but unavailable.");
   }
 }
