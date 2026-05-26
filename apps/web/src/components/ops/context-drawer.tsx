@@ -9,16 +9,18 @@ import type { NaturalEventEntity } from "@/types/operational";
 export function ContextDrawer({
   event,
   onClose,
-  mobile = false
+  mobile = false,
+  compact = false
 }: {
   event: NaturalEventEntity;
   onClose: () => void;
   mobile?: boolean;
+  compact?: boolean;
 }) {
-  if (mobile) {
+  if (mobile || compact) {
     return (
       <aside className="glass-panel rounded-[28px] border border-white/10 p-3 shadow-panel">
-        <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-white/10" />
+        {mobile ? <div className="mx-auto mb-3 h-1.5 w-14 rounded-full bg-white/10" /> : null}
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="truncate font-display text-lg font-semibold text-white">{event.title}</p>

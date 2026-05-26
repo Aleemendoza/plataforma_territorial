@@ -9,7 +9,6 @@ import { MapboxOverlay } from "@deck.gl/mapbox";
 import { LineLayer, PathLayer, PolygonLayer, ScatterplotLayer, TextLayer } from "@deck.gl/layers";
 import { layers as buildBasemapLayers, namedFlavor } from "@protomaps/basemaps";
 import { Protocol } from "pmtiles";
-import { NarrativeEventPreview } from "@/components/ops/narrative-event-preview";
 import { LoadingShimmerMap } from "@/components/ops/loading-shimmer-map";
 import { cn } from "@/lib/utils";
 import type { EnvironmentalField, NarrativeScene, NaturalEventEntity } from "@/types/operational";
@@ -309,7 +308,8 @@ export function LiveMapStage({
   highlightedEventId,
   activeFieldIds,
   crisisMode,
-  cinematicMode = false
+  cinematicMode = false,
+  onSelectEvent
 }: {
   scene: NarrativeScene;
   selectedEventId: string | null;
@@ -317,6 +317,7 @@ export function LiveMapStage({
   activeFieldIds: string[];
   crisisMode: boolean;
   cinematicMode?: boolean;
+  onSelectEvent?: (eventId: string) => void;
 }) {
   const mapContainerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
@@ -711,10 +712,13 @@ export function LiveMapStage({
           const isEmphasized = entity.id === emphasizedEventId;
 
           return (
-            <div
+            <button
               key={entity.id}
-              className="pointer-events-none absolute -translate-x-1/2 -translate-y-1/2"
+              type="button"
+              className="absolute -translate-x-1/2 -translate-y-1/2 focus:outline-none"
               style={{ left: x, top: y }}
+              onClick={() => onSelectEvent?.(entity.id)}
+              aria-label={entity.title}
             >
               <div
                 className={cn(
@@ -729,8 +733,7 @@ export function LiveMapStage({
               >
                 <span className="relative">{markerEmoji(entity.kind)}</span>
               </div>
-              {isEmphasized ? <NarrativeEventPreview eventType={entity.kind} preview={entity.preview} className="mt-3 w-48" /> : null}
-            </div>
+            </button>
           );
         })}
       </div>

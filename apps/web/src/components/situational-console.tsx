@@ -1,9 +1,9 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Layers3, X } from "lucide-react";
 import { AlertSlidePriority } from "@/components/ops/alert-slide-priority";
 import { AlertStack } from "@/components/ops/alert-stack";
-import { AlertToastPassive } from "@/components/ops/alert-toast-passive";
 import { ContextDrawer } from "@/components/ops/context-drawer";
 import { CriticalAlertModal } from "@/components/ops/critical-alert-modal";
 import { LiveMapStage } from "@/components/ops/live-map-stage";
@@ -47,6 +47,7 @@ export function SituationalConsole({
   const [showPriority, setShowPriority] = useState(false);
   const [showCritical, setShowCritical] = useState(false);
   const [cinematicMode, setCinematicMode] = useState(false);
+  const [desktopFiltersOpen, setDesktopFiltersOpen] = useState(false);
 
   const visibleEvents = useMemo(
     () => narrativeEvents.filter((event) => matchesFilters(event, activeFilters)),
@@ -79,25 +80,54 @@ export function SituationalConsole({
   return (
     <main className="min-h-screen bg-graphite px-3 pb-32 pt-3 text-white lg:px-4 lg:pb-4">
       <TopStatusBar status={operationalStatus} topAlerts={visibleEvents} />
-      <button
-        type="button"
-        onClick={() => setCinematicMode((current) => !current)}
-        className="mx-auto mt-3 block max-w-[1800px] rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-cyan-100"
-      >
-        {cinematicMode ? "Salir modo cinematico" : "Modo cinematico"}
-      </button>
-      <div className="mx-auto mt-3 grid max-w-[1800px] grid-cols-1 gap-3 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
-        <OperationalSidebar
-          status={operationalStatus}
-          layers={layers}
-          activeFilters={activeFilters}
-          activeLayerIds={activeFieldIds}
-          onToggleFilter={toggleFilter}
-          onToggleLayer={toggleLayer}
-          className="hidden lg:block"
-        />
-
-        <section className="grid min-h-[calc(100vh-152px)] grid-rows-[minmax(0,1fr)_96px] gap-3">
+      <div className="mx-auto mt-3 flex max-w-[1800px] items-center justify-center gap-2">
+        <button
+          type="button"
+          onClick={() => setDesktopFiltersOpen((current) => !current)}
+          className="hidden items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.18em] text-slate-200 lg:inline-flex"
+        >
+          <Layers3 className="h-4 w-4" />
+          Capas y filtros
+        </button>
+        <button
+          type="button"
+          onClick={() => setCinematicMode((current) => !current)}
+          className="rounded-full border border-cyan-300/20 bg-cyan-300/10 px-4 py-2 text-xs uppercase tracking-[0.2em] text-cyan-100"
+        >
+          {cinematicMode ? "Salir modo cinematico" : "Modo cinematico"}
+        </button>
+      </div>
+      <div className="mx-auto mt-3 grid max-w-[1800px] grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1fr)_320px]">
+        <section className="relative grid min-h-[calc(100vh-152px)] grid-rows-[minmax(0,1fr)_96px] gap-3">
+          {desktopFiltersOpen ? (
+            <div className="absolute left-4 top-4 z-20 hidden w-[320px] lg:block">
+              <div className="glass-panel rounded-[28px] border border-white/10 p-4 shadow-panel">
+                <div className="mb-4 flex items-center justify-between">
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.24em] text-slate-500">Capas y filtros</p>
+                    <p className="mt-1 text-sm text-slate-300">Controla incendios, viento y riesgo sobre el mapa.</p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setDesktopFiltersOpen(false)}
+                    className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-300"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <OperationalSidebar
+                  status={operationalStatus}
+                  layers={layers}
+                  activeFilters={activeFilters}
+                  activeLayerIds={activeFieldIds}
+                  onToggleFilter={toggleFilter}
+                  onToggleLayer={toggleLayer}
+                  compact
+                  className="border-0 bg-transparent p-0 shadow-none backdrop-blur-none"
+                />
+              </div>
+            </div>
+          ) : null}
           <LiveMapStage
             scene={currentScene}
             highlightedEventId={highlightedEvent?.id ?? null}
@@ -105,7 +135,13 @@ export function SituationalConsole({
             activeFieldIds={activeFieldIds}
             crisisMode={crisisMode}
             cinematicMode={cinematicMode}
+            onSelectEvent={(eventId) => setSelectedEventId((current) => (current === eventId ? null : eventId))}
           />
+          {selectedEvent ? (
+            <div className="absolute bottom-28 right-4 z-20 hidden w-[360px] lg:block">
+              <ContextDrawer event={selectedEvent} onClose={() => setSelectedEventId(null)} compact />
+            </div>
+          ) : null}
           <TimelineScrubber
             scenes={narrativeScenes}
             selectedIndex={timelineIndex}
@@ -120,9 +156,6 @@ export function SituationalConsole({
             onSelect={(alert) => setSelectedEventId((current) => (current === alert.id ? null : alert.id))}
             onHover={(alert) => setHighlightedEventId(alert?.id ?? null)}
           />
-          {selectedEvent && (
-            <ContextDrawer event={selectedEvent} onClose={() => setSelectedEventId(null)} />
-          )}
         </aside>
       </div>
 
@@ -166,11 +199,6 @@ export function SituationalConsole({
         )}
       </div>
 
-      {visibleEvents[0] && (
-        <div className="fixed bottom-24 left-3 z-30 hidden lg:block lg:bottom-6 lg:left-auto lg:right-6">
-          <AlertToastPassive alert={visibleEvents[0]} />
-        </div>
-      )}
       {priorityEvent && showPriority && (
         <AlertSlidePriority
           alert={priorityEvent}
