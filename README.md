@@ -28,8 +28,8 @@ Si `NEXT_PUBLIC_API_URL` esta vacia, el frontend usa datos demo locales. Eso per
 ## Railway
 
 1. Conectar el repo de GitHub en Railway.
-2. Configurar `apps/web` como root directory del servicio.
-3. Railway detecta el `Dockerfile` y construye el frontend.
+2. Railway detecta el `Dockerfile` en la raiz del repo y construye `apps/web` sin configuracion extra de monorepo.
+3. Si el servicio ya existia fallando con Railpack, hacer un redeploy despues de este cambio.
 4. Cargar variables:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`

@@ -1,0 +1,13 @@
+.git
+.github
+.codex
+node_modules
+apps/web/node_modules
+apps/web/.next
+services
+packages
+docs
+infra
+postgres-data
+minio-data
+npm-debug.log
