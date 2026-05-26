@@ -44,8 +44,8 @@ export function SituationalConsole({
   );
   const [mobilePanel, setMobilePanel] = useState<SheetPanel>("map");
   const [timelineIndex, setTimelineIndex] = useState(narrativeScenes.length - 1);
-  const [showPriority, setShowPriority] = useState(true);
-  const [showCritical, setShowCritical] = useState(true);
+  const [showPriority, setShowPriority] = useState(false);
+  const [showCritical, setShowCritical] = useState(false);
   const [cinematicMode, setCinematicMode] = useState(false);
 
   const visibleEvents = useMemo(

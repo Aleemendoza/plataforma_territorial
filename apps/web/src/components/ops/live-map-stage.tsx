@@ -448,6 +448,31 @@ export function LiveMapStage({
   }, []);
 
   useEffect(() => {
+    const map = mapRef.current;
+    const container = mapContainerRef.current;
+    if (!map || !container) return;
+
+    const resizeMap = () => {
+      map.resize();
+    };
+
+    resizeMap();
+    const animationFrame = window.requestAnimationFrame(resizeMap);
+    const timeoutId = window.setTimeout(resizeMap, 250);
+    const observer = new ResizeObserver(() => {
+      resizeMap();
+    });
+
+    observer.observe(container);
+
+    return () => {
+      window.cancelAnimationFrame(animationFrame);
+      window.clearTimeout(timeoutId);
+      observer.disconnect();
+    };
+  }, [isReady]);
+
+  useEffect(() => {
     if (!overlayRef.current) return;
 
     const deckLayers: Layer[] = [];
