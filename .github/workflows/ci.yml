@@ -1,0 +1,41 @@
+name: ci
+
+on:
+  push:
+    branches: ["main", "master"]
+  pull_request:
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: npm install
+      - run: npm run lint
+      - run: npm run build
+
+  python:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service:
+          - services/api-gateway
+          - services/geo-service
+          - services/ingestion-service
+          - services/risk-engine
+          - services/alert-engine
+          - services/scheduler
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install uv
+      - run: uv pip install --system -r ${{ matrix.service }}/requirements.txt
+      - run: python -m compileall ${{ matrix.service }}

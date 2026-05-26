@@ -1,0 +1,63 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: dark;
+  --background: 6 7 10;
+  --surface: 10 14 22;
+  --panel: 14 20 31;
+  --panel-strong: 18 27 40;
+  --line: 32 45 63;
+  --text-primary: 244 247 251;
+  --text-secondary: 148 163 184;
+  --text-muted: 100 116 139;
+  --risk-low: 49 196 108;
+  --risk-medium: 232 197 71;
+  --risk-high: 240 138 36;
+  --risk-critical: 240 68 82;
+  --water: 39 179 255;
+  --radius-panel: 1.75rem;
+  --radius-control: 1rem;
+  --shadow-panel: 0 24px 80px rgba(0, 0, 0, 0.42);
+}
+
+body {
+  @apply bg-graphite text-white antialiased;
+  background-image:
+    radial-gradient(circle at top, rgba(39, 179, 255, 0.12), transparent 35%),
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: auto, 28px 28px, 28px 28px;
+}
+
+* {
+  scrollbar-color: #223148 transparent;
+}
+
+button,
+[role="button"],
+a,
+input,
+select {
+  @apply outline-none;
+}
+
+:focus-visible {
+  @apply ring-2 ring-cyan-300 ring-offset-2 ring-offset-graphite;
+}
+
+.glass-panel {
+  @apply border border-white/10 bg-panel/80 shadow-panel backdrop-blur-xl;
+}
+
+.status-grid {
+  grid-template-columns: repeat(auto-fit, minmax(132px, 1fr));
+}
+
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-top-left,
+.maplibregl-ctrl-top-right {
+  display: none;
+}
