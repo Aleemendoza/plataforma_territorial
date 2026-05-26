@@ -36,7 +36,7 @@ export function SituationalConsole({
 }) {
   const { status: operationalStatus, layers, narrativeEvents, narrativeScenes } = initialData;
 
-  const [selectedEventId, setSelectedEventId] = useState<string | null>(narrativeEvents[0]?.id ?? null);
+  const [selectedEventId, setSelectedEventId] = useState<string | null>(null);
   const [highlightedEventId, setHighlightedEventId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [activeFieldIds, setActiveFieldIds] = useState<string[]>(
@@ -53,7 +53,7 @@ export function SituationalConsole({
     [activeFilters, narrativeEvents]
   );
 
-  const selectedEvent = visibleEvents.find((event) => event.id === selectedEventId) ?? visibleEvents[0] ?? null;
+  const selectedEvent = visibleEvents.find((event) => event.id === selectedEventId) ?? null;
   const highlightedEvent = visibleEvents.find((event) => event.id === highlightedEventId) ?? null;
   const currentScene = narrativeScenes[timelineIndex] ?? narrativeScenes[0];
   const crisisMode = Boolean(
@@ -117,7 +117,7 @@ export function SituationalConsole({
           <AlertStack
             alerts={visibleEvents}
             selectedAlertId={selectedEvent?.id}
-            onSelect={(alert) => setSelectedEventId(alert.id)}
+            onSelect={(alert) => setSelectedEventId((current) => (current === alert.id ? null : alert.id))}
             onHover={(alert) => setHighlightedEventId(alert?.id ?? null)}
           />
           {selectedEvent && (

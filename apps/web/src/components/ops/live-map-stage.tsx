@@ -11,7 +11,7 @@ import { layers as buildBasemapLayers, namedFlavor } from "@protomaps/basemaps";
 import { Protocol } from "pmtiles";
 import { NarrativeEventPreview } from "@/components/ops/narrative-event-preview";
 import { LoadingShimmerMap } from "@/components/ops/loading-shimmer-map";
-import { cn, formatUtcDayMonthLong } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { EnvironmentalField, NarrativeScene, NaturalEventEntity } from "@/types/operational";
 
 const INITIAL_CENTER: LngLatLike = [-65.3, -24.2];
@@ -332,6 +332,7 @@ export function LiveMapStage({
   const selectedEvent = scene.events.find((event) => event.id === selectedEventId) ?? null;
   const highlightedEvent = scene.events.find((event) => event.id === highlightedEventId) ?? null;
   const activeEvent = selectedEvent ?? highlightedEvent ?? scene.events[0] ?? null;
+  const emphasizedEventId = selectedEvent?.id ?? highlightedEvent?.id ?? null;
   const reliefPaths = useMemo<ReferencePath[]>(
     () => JUJUY_RELIEF_PATHS.map((path) => ({ path })),
     []
@@ -407,7 +408,7 @@ export function LiveMapStage({
         source: "jujuy-outline",
         paint: {
           "fill-color": "#0f172a",
-          "fill-opacity": 0.14
+          "fill-opacity": 0.04
         }
       });
       map.addLayer({
@@ -416,7 +417,7 @@ export function LiveMapStage({
         source: "jujuy-outline",
         paint: {
           "line-color": "#38bdf8",
-          "line-opacity": 0.16,
+          "line-opacity": 0.1,
           "line-width": 12,
           "line-blur": 6
         }
@@ -685,24 +686,22 @@ export function LiveMapStage({
     });
   }, [scene, cinematicMode]);
 
-  const sceneLabel = `${formatUtcDayMonthLong(scene.timestamp)} | ${scene.freshness}`;
-
   return (
     <section
       className={cn(
-        "relative overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-panel",
+        "relative h-full min-h-[640px] overflow-hidden rounded-[30px] border border-white/10 bg-slate-950 shadow-panel",
         crisisMode && "border-riskCritical/30 shadow-[0_0_0_1px_rgba(240,68,82,0.08),0_30px_90px_rgba(0,0,0,0.48)]",
         cinematicMode && "ring-1 ring-cyan-300/20"
       )}
     >
       {!isReady && <LoadingShimmerMap />}
       <div ref={mapContainerRef} className="absolute inset-0" />
-      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,8,13,0.03),rgba(6,8,13,0.18)_32%,rgba(6,8,13,0.44))]" />
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(39,179,255,0.09),transparent_28%),radial-gradient(circle_at_50%_55%,rgba(56,189,248,0.06),transparent_52%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(6,8,13,0.02),rgba(6,8,13,0.08)_32%,rgba(6,8,13,0.18))]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_55%,rgba(39,179,255,0.05),transparent_28%),radial-gradient(circle_at_50%_55%,rgba(56,189,248,0.03),transparent_52%)]" />
 
       <div className="absolute inset-0 z-[5]">
         {projectedMarkers.map(({ entity, x, y }) => {
-          const isActive = entity.id === activeEvent?.id;
+          const isEmphasized = entity.id === emphasizedEventId;
 
           return (
             <div
@@ -718,59 +717,15 @@ export function LiveMapStage({
                   entity.kind === "wildfire"
                     ? "before:absolute before:h-14 before:w-14 before:rounded-full before:bg-orange-400/10 before:blur-xl"
                     : "",
-                  isActive ? "z-10 scale-125" : ""
+                  isEmphasized ? "z-10 scale-125" : ""
                 )}
               >
                 <span className="relative">{markerEmoji(entity.kind)}</span>
               </div>
-              {isActive ? (
-                <NarrativeEventPreview eventType={entity.kind} preview={entity.preview} className="mt-3 w-56" />
-              ) : null}
+              {isEmphasized ? <NarrativeEventPreview eventType={entity.kind} preview={entity.preview} className="mt-3 w-48" /> : null}
             </div>
           );
         })}
-      </div>
-
-      <div className="absolute left-4 top-4 z-10 max-w-md rounded-3xl border border-white/10 bg-slate-950/45 p-3 backdrop-blur">
-        <p className="text-xs uppercase tracking-[0.24em] text-cyan-300">
-          {cinematicMode ? "Modo cinematico" : "Vista situacional"}
-        </p>
-        <h1 className="mt-1 font-display text-xl font-semibold text-white lg:text-2xl">
-          Provincia de Jujuy en monitoreo activo
-        </h1>
-        <p className="mt-2 text-xs text-slate-300 lg:text-sm">
-          {activeEvent?.narrative_summary ??
-            "El mapa traduce fuego, lluvia, viento y agua en senales visuales intuitivas sin forzar lectura GIS."}
-        </p>
-      </div>
-
-      <div className="absolute bottom-4 right-4 z-10 max-w-xs rounded-3xl border border-white/10 bg-slate-950/48 p-3 backdrop-blur">
-        <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Condiciones naturales</p>
-        <div className="mt-3 grid grid-cols-2 gap-2 text-[11px] text-slate-300">
-          {scene.conditions_summary.map((item) => (
-            <div key={item.label} className="rounded-2xl border border-white/8 bg-white/5 px-3 py-2">
-              <p className="uppercase tracking-[0.16em] text-slate-500">{item.label}</p>
-              <p className="mt-1 font-medium text-white">{item.value}</p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="absolute bottom-4 left-4 z-10 flex max-w-md flex-wrap items-end gap-3">
-        <div className="rounded-3xl border border-white/10 bg-slate-950/45 px-4 py-3 text-sm backdrop-blur">
-          <p className="text-xs uppercase tracking-[0.18em] text-slate-500">Escena actual</p>
-          <p className="font-medium text-white" suppressHydrationWarning>{sceneLabel}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {activeFieldIds.slice(0, 5).map((fieldId) => (
-            <span
-              key={fieldId}
-              className="rounded-full border border-white/10 bg-slate-950/55 px-3 py-1.5 text-xs uppercase tracking-[0.18em] text-slate-300 backdrop-blur"
-            >
-              {fieldId}
-            </span>
-          ))}
-        </div>
       </div>
     </section>
   );
