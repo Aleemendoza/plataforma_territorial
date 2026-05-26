@@ -452,8 +452,13 @@ export function LiveMapStage({
     const map = mapRef.current;
     const container = mapContainerRef.current;
     if (!map || !container) return;
+    const stage = container.parentElement;
 
     const resizeMap = () => {
+      if (stage) {
+        const nextHeight = Math.max(stage.clientHeight, 640);
+        container.style.height = `${nextHeight}px`;
+      }
       map.resize();
     };
 
@@ -464,7 +469,9 @@ export function LiveMapStage({
       resizeMap();
     });
 
-    observer.observe(container);
+    if (stage) {
+      observer.observe(stage);
+    }
 
     return () => {
       window.cancelAnimationFrame(animationFrame);
